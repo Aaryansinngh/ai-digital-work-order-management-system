@@ -54,6 +54,9 @@ router.post('/inventory', requireRole('INVENTORY_MANAGER', 'ADMINISTRATOR'), inv
 router.patch('/inventory/:id', requireRole('INVENTORY_MANAGER', 'ADMINISTRATOR'), inventoryController.updateInventoryItem);
 router.get('/inventory/history', requireRole('INVENTORY_MANAGER', 'ADMINISTRATOR', 'SUPERVISOR'), inventoryController.getInventoryIssueHistory);
 router.get('/equipment', inventoryController.getEquipmentList);
+router.get('/equipment/:id', inventoryController.getEquipmentById);
+router.post('/equipment', requireRole('ADMINISTRATOR', 'SUPERVISOR'), inventoryController.createEquipment);
+router.patch('/equipment/:id', requireRole('ADMINISTRATOR', 'SUPERVISOR'), inventoryController.updateEquipment);
 
 // DASHBOARD
 router.get('/dashboard', dashboardController.getDashboardData);

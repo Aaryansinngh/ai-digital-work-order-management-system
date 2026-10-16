@@ -59,10 +59,10 @@ export const WorkOrdersPage: React.FC = () => {
   const fetchMetadata = async () => {
     try {
       const eqRes = await apiClient.get('/equipment');
-      setEquipmentList(eqRes.data.equipment);
+      setEquipmentList(eqRes.data.equipment || []);
 
       const userRes = await apiClient.get('/users?role=WORKER');
-      setWorkersList(userRes.data.users);
+      setWorkersList(userRes.data.users || []);
     } catch (err) {
       console.error(err);
     }
@@ -148,7 +148,10 @@ export const WorkOrdersPage: React.FC = () => {
           <Button
             variant="primary"
             icon={<Plus className="w-4 h-4" />}
-            onClick={() => setIsCreateOpen(true)}
+            onClick={() => {
+              fetchMetadata();
+              setIsCreateOpen(true);
+            }}
           >
             Create New Work Order
           </Button>
@@ -261,19 +264,32 @@ export const WorkOrdersPage: React.FC = () => {
         maxWidth="lg"
       >
         <form onSubmit={handleCreateWorkOrder} className="space-y-4">
-          <Select
-            label="Equipment Asset"
-            value={selectedEquipment}
-            onChange={(e) => setSelectedEquipment(e.target.value)}
-            options={[
-              { value: '', label: '-- Select Industrial Equipment --' },
-              ...equipmentList.map((e) => ({
-                value: e.id,
-                label: `${e.name} (${e.location} - ${e.criticality})`,
-              })),
-            ]}
-            required
-          />
+          <div>
+            <Select
+              label="Equipment Asset"
+              value={selectedEquipment}
+              onChange={(e) => setSelectedEquipment(e.target.value)}
+              options={[
+                {
+                  value: '',
+                  label:
+                    equipmentList.length === 0
+                      ? '-- No Equipment Found (Register in Equipment section) --'
+                      : '-- Select Industrial Equipment --',
+                },
+                ...equipmentList.map((e) => ({
+                  value: e.id,
+                  label: `${e.name} (${e.location} - ${e.criticality})`,
+                })),
+              ]}
+              required
+            />
+            {equipmentList.length === 0 && (
+              <p className="text-[11px] text-amber-400 mt-1">
+                ⚠️ No equipment registered yet. Please create equipment first in the Equipment section.
+              </p>
+            )}
+          </div>
 
           <Select
             label="Assign Maintenance Worker"

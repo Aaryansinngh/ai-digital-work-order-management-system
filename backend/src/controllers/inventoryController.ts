@@ -146,12 +146,169 @@ export async function getInventoryIssueHistory(req: Request, res: Response, next
   }
 }
 
+const criticalityEnum = z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
+
+const createEquipmentSchema = z.object({
+  name: z.string().min(2, 'Equipment name must be at least 2 characters.'),
+  location: z.string().min(2, 'Location must be at least 2 characters.'),
+  criticality: criticalityEnum,
+  maintenanceHistory: z.string().optional(),
+});
+
+const updateEquipmentSchema = z.object({
+  name: z.string().min(2, 'Equipment name must be at least 2 characters.').optional(),
+  location: z.string().min(2, 'Location must be at least 2 characters.').optional(),
+  criticality: criticalityEnum.optional(),
+  maintenanceHistory: z.string().optional().nullable(),
+});
+
 export async function getEquipmentList(req: Request, res: Response, next: NextFunction) {
   try {
+    const search = req.query.search as string | undefined;
     const equipment = await prisma.equipment.findMany({
+      where: search
+        ? {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { location: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {},
+      include: {
+        _count: {
+          select: { workOrders: true },
+        },
+      },
       orderBy: { name: 'asc' },
     });
     return res.json({ equipment });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getEquipmentById(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params;
+    const equipment = await prisma.equipment.findUnique({
+      where: { id },
+      include: {
+        workOrders: {
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            workOrderNumber: true,
+            taskDescription: true,
+            priority: true,
+            status: true,
+            deadline: true,
+          },
+        },
+        _count: {
+          select: { workOrders: true },
+        },
+      },
+    });
+
+    if (!equipment) {
+      return res.status(404).json({ message: 'Equipment not found.' });
+    }
+
+    return res.json({ equipment });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createEquipment(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = createEquipmentSchema.parse(req.body);
+
+    const existing = await prisma.equipment.findFirst({
+      where: { name: { equals: data.name.trim(), mode: 'insensitive' } },
+    });
+    if (existing) {
+      return res.status(400).json({ message: `Equipment with name '${data.name}' already exists.` });
+    }
+
+    const equipment = await prisma.equipment.create({
+      data: {
+        name: data.name.trim(),
+        location: data.location.trim(),
+        criticality: data.criticality,
+        maintenanceHistory: data.maintenanceHistory?.trim() || null,
+      },
+      include: {
+        _count: {
+          select: { workOrders: true },
+        },
+      },
+    });
+
+    await logAuditAction({
+      userId: req.user?.id,
+      action: 'EQUIPMENT_CREATED',
+      entityType: 'EQUIPMENT',
+      entityId: equipment.id,
+      newValue: { name: equipment.name, location: equipment.location, criticality: equipment.criticality },
+    });
+
+    return res.status(201).json({ equipment });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateEquipment(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params;
+    const data = updateEquipmentSchema.parse(req.body);
+
+    const existing = await prisma.equipment.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ message: 'Equipment not found.' });
+    }
+
+    if (data.name && data.name.trim().toLowerCase() !== existing.name.toLowerCase()) {
+      const duplicate = await prisma.equipment.findFirst({
+        where: {
+          name: { equals: data.name.trim(), mode: 'insensitive' },
+          id: { not: id },
+        },
+      });
+      if (duplicate) {
+        return res.status(400).json({ message: `Equipment with name '${data.name}' already exists.` });
+      }
+    }
+
+    const updated = await prisma.equipment.update({
+      where: { id },
+      data: {
+        ...(data.name ? { name: data.name.trim() } : {}),
+        ...(data.location ? { location: data.location.trim() } : {}),
+        ...(data.criticality ? { criticality: data.criticality } : {}),
+        ...(data.maintenanceHistory !== undefined
+          ? { maintenanceHistory: data.maintenanceHistory ? data.maintenanceHistory.trim() : null }
+          : {}),
+      },
+      include: {
+        _count: {
+          select: { workOrders: true },
+        },
+      },
+    });
+
+    await logAuditAction({
+      userId: req.user?.id,
+      action: 'EQUIPMENT_UPDATED',
+      entityType: 'EQUIPMENT',
+      entityId: id,
+      previousValue: { name: existing.name, location: existing.location, criticality: existing.criticality },
+      newValue: { name: updated.name, location: updated.location, criticality: updated.criticality },
+    });
+
+    return res.json({ equipment: updated });
   } catch (error) {
     next(error);
   }

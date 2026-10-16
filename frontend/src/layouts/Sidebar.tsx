@@ -22,6 +22,7 @@ export const Sidebar: React.FC = () => {
     { label: 'Work Orders', path: '/work-orders', icon: ClipboardList, roles: ['ADMINISTRATOR', 'SUPERVISOR', 'WORKER'] },
     { label: 'Job Cards', path: '/job-cards', icon: Wrench, roles: ['ADMINISTRATOR', 'SUPERVISOR', 'WORKER'] },
     { label: 'Inventory', path: '/inventory', icon: Package, roles: ['ADMINISTRATOR', 'SUPERVISOR', 'INVENTORY_MANAGER', 'WORKER'] },
+    { label: 'Equipment', path: '/equipment', icon: Boxes, roles: ['ADMINISTRATOR', 'SUPERVISOR', 'WORKER', 'INVENTORY_MANAGER'] },
     { label: 'User Management', path: '/users', icon: Users, roles: ['ADMINISTRATOR'] },
     { label: 'Audit Logs', path: '/audit-logs', icon: ShieldCheck, roles: ['ADMINISTRATOR', 'SUPERVISOR'] },
     { label: 'AI Reports Studio', path: '/reports', icon: FileBarChart, roles: ['ADMINISTRATOR', 'SUPERVISOR'] },

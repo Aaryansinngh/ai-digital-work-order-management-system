@@ -21,6 +21,10 @@ export interface Equipment {
   criticality: Criticality;
   maintenanceHistory?: string;
   createdAt: string;
+  updatedAt?: string;
+  _count?: {
+    workOrders: number;
+  };
 }
 
 export interface WorkOrder {
