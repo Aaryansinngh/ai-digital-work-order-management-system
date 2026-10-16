@@ -15,6 +15,7 @@ const router = Router();
 
 // PUBLIC AUTH ROUTES
 router.post('/auth/login', authController.login);
+router.post('/auth/bootstrap-admin', authController.bootstrapAdmin);
 
 // PROTECTED ROUTES BELOW
 router.use(authenticateJWT);

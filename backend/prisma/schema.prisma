@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMINISTRATOR
+  SUPERVISOR
+  WORKER
+  INVENTORY_MANAGER
+}
+
+enum Criticality {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum WorkOrderPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum WorkOrderStatus {
+  CREATED
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  APPROVED_CLOSED
+}
+
+enum JobCardStatus {
+  IN_PROGRESS
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+enum MaterialRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ISSUED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  createdWorkOrders  WorkOrder[]       @relation("CreatedWorkOrders")
+  assignedWorkOrders WorkOrder[]       @relation("AssignedWorkOrders")
+  requestedMaterials MaterialRequest[] @relation("RequestedMaterials")
+  approvedMaterials  MaterialRequest[] @relation("ApprovedMaterials")
+  issuedMaterials    MaterialRequest[] @relation("IssuedMaterials")
+  issuedInventory    InventoryIssue[]  @relation("IssuedBy")
+  auditLogs          AuditLog[]
+}
+
+model Equipment {
+  id                 String      @id @default(uuid())
+  name               String
+  location           String
+  criticality        Criticality
+  maintenanceHistory String?     @db.Text
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  workOrders WorkOrder[]
+}
+
+model WorkOrder {
+  id                  String            @id @default(uuid())
+  workOrderNumber     String            @unique
+  equipmentId         String
+  assignedToId        String
+  createdById         String
+  taskDescription     String            @db.Text
+  priority            WorkOrderPriority
+  priorityScore       Float             @default(50.0)
+  priorityExplanation String?           @db.Text
+  deadline            DateTime
+  status              WorkOrderStatus   @default(CREATED)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  completedAt         DateTime?
+
+  // Relations
+  equipment  Equipment @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
+  assignedTo User      @relation("AssignedWorkOrders", fields: [assignedToId], references: [id], onDelete: Restrict)
+  createdBy  User      @relation("CreatedWorkOrders", fields: [createdById], references: [id], onDelete: Restrict)
+
+  jobCard JobCard?
+}
+
+model JobCard {
+  id                   String        @id @default(uuid())
+  workOrderId          String        @unique
+  completionPercentage Int           @default(0)
+  remarks              String?       @db.Text
+  status               JobCardStatus @default(IN_PROGRESS)
+  rejectionReason      String?       @db.Text
+  evidencePhotos       String        @default("[]") // JSON string of photo URLs/Base64
+  submittedAt          DateTime?
+  approvedAt           DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  // Relations
+  workOrder        WorkOrder         @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  materialRequests MaterialRequest[]
+}
+
+model MaterialRequest {
+  id              String                @id @default(uuid())
+  jobCardId       String
+  inventoryItemId String
+  quantity        Int
+  status          MaterialRequestStatus @default(PENDING)
+  requestedById   String
+  approvedById    String?
+  issuedById      String?
+  rejectionReason String?               @db.Text
+  requestedAt     DateTime              @default(now())
+  approvedAt      DateTime?
+  issuedAt        DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  // Relations
+  jobCard       JobCard         @relation(fields: [jobCardId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem   @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  requestedBy   User            @relation("RequestedMaterials", fields: [requestedById], references: [id])
+  approvedBy    User?           @relation("ApprovedMaterials", fields: [approvedById], references: [id])
+  issuedBy      User?           @relation("IssuedMaterials", fields: [issuedById], references: [id])
+  inventoryIssue InventoryIssue?
+}
+
+model InventoryItem {
+  id            String   @id @default(uuid())
+  itemCode      String   @unique
+  name          String
+  unit          String
+  stockQuantity Int      @default(0)
+  reorderLevel  Int      @default(10)
+  location      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  materialRequests MaterialRequest[]
+  issues           InventoryIssue[]
+}
+
+model InventoryIssue {
+  id                String   @id @default(uuid())
+  inventoryItemId   String
+  quantity          Int
+  materialRequestId String   @unique
+  issuedById        String
+  createdAt         DateTime @default(now())
+
+  inventoryItem   InventoryItem   @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  materialRequest MaterialRequest @relation(fields: [materialRequestId], references: [id], onDelete: Cascade)
+  issuedBy        User            @relation("IssuedBy", fields: [issuedById], references: [id])
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  userId        String?
+  action        String
+  entityType    String
+  entityId      String?
+  previousValue String?  @db.Text
+  newValue      String?  @db.Text
+  metadata      String?  @db.Text
+  createdAt     DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}

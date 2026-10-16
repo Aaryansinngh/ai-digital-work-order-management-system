@@ -101,3 +101,54 @@ export async function getMe(req: Request, res: Response, next: NextFunction) {
     next(error);
   }
 }
+
+const bootstrapSchema = z.object({
+  name: z.string().min(1, 'Name is required.'),
+  email: z.string().email('Valid email is required.'),
+  password: z.string().min(8, 'Password must be at least 8 characters.'),
+});
+
+export async function bootstrapAdmin(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userCount = await prisma.user.count();
+    if (userCount > 0) {
+      return res.status(403).json({ message: 'Bootstrap already completed. An administrator account already exists.' });
+    }
+
+    const { name, email, password } = bootstrapSchema.parse(req.body);
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email: email.toLowerCase().trim(),
+        passwordHash,
+        role: 'ADMINISTRATOR',
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    await logAuditAction({
+      userId: user.id,
+      action: 'ADMIN_BOOTSTRAP',
+      entityType: 'USER',
+      entityId: user.id,
+      metadata: { email: user.email },
+    });
+
+    return res.status(201).json({
+      message: 'Administrator account created successfully.',
+      user,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
