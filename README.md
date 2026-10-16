@@ -3,7 +3,31 @@
 A production-quality, responsive web application that digitizes industrial work orders, job cards, materials, inventory, real-time WebSocket telemetry, and AI capabilities across four operational user roles (**Administrator**, **Supervisor**, **Worker**, **Inventory Manager**).
 
 ---
+# Industrial AI-Powered Digital Work Order & Job Card Management System
 
+A full-stack industrial maintenance management application.
+
+## Live Demo
+
+**[Open the Application](https://ai-digital-work-order-management-system-1.onrender.com)**
+
+## Technology Stack
+
+- Frontend: React, TypeScript, Vite
+- Backend: Node.js, Express, TypeScript
+- Database: PostgreSQL
+- ORM: Prisma
+
+## Features
+
+- Authentication and role-based access
+- User management
+- Equipment management
+- Work order management
+- Job cards
+- Inventory and material requests
+- Audit logs
+- AI reporting
 ## 🛠 Required Technology Stack
 
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, React Router DOM v6, TanStack Query, Recharts, Socket.io-client, Lucide Icons.
