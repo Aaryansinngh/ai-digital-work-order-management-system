@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { PrismaClient, Role, Criticality, WorkOrderPriority, WorkOrderStatus, JobCardStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -6,15 +7,7 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Starting Database Seeding...');
 
-  // 1. Clear existing data
-  await prisma.auditLog.deleteMany();
-  await prisma.inventoryIssue.deleteMany();
-  await prisma.materialRequest.deleteMany();
-  await prisma.jobCard.deleteMany();
-  await prisma.workOrder.deleteMany();
-  await prisma.equipment.deleteMany();
-  await prisma.inventoryItem.deleteMany();
-  await prisma.user.deleteMany();
+  
 
   const commonPasswordHash = await bcrypt.hash('Password123!', 10);
 

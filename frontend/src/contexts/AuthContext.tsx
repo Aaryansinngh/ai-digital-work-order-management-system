@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+} from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User } from '../types';
 import apiClient from '../api/client';
 
@@ -12,53 +18,107 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const navigate = useNavigate();
+
   const [user, setUser] = useState<User | null>(() => {
-    const savedUser = localStorage.getItem('user');
-    return savedUser ? JSON.parse(savedUser) : null;
+    try {
+      const savedUser = localStorage.getItem('user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      localStorage.removeItem('user');
+      return null;
+    }
   });
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
+
+  const [token, setToken] = useState<string | null>(
+    () => localStorage.getItem('token')
+  );
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     const verifyUser = async () => {
-      if (token) {
-        try {
-          const res = await apiClient.get('/auth/me');
-          setUser(res.data.user);
-          localStorage.setItem('user', JSON.stringify(res.data.user));
-        } catch (err) {
+      try {
+        if (!token) {
+          if (!cancelled) {
+            setUser(null);
+          }
+          return;
+        }
+
+        const res = await apiClient.get('/auth/me');
+
+        if (cancelled) return;
+
+        const verifiedUser = res.data.user;
+
+        if (!verifiedUser) {
+          throw new Error('Invalid session');
+        }
+
+        setUser(verifiedUser);
+        localStorage.setItem('user', JSON.stringify(verifiedUser));
+      } catch {
+        if (!cancelled) {
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           setToken(null);
           setUser(null);
         }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-      setLoading(false);
     };
+
+    setLoading(true);
     verifyUser();
+
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   const login = async (email: string, password: string) => {
-    const res = await apiClient.post('/auth/login', { email, password });
+    const res = await apiClient.post('/auth/login', {
+      email,
+      password,
+    });
+
     const { token: newToken, user: newUser } = res.data;
+
+    if (!newToken || !newUser) {
+      throw new Error('Invalid login response from server');
+    }
 
     localStorage.setItem('token', newToken);
     localStorage.setItem('user', JSON.stringify(newUser));
-    setToken(newToken);
+
     setUser(newUser);
+    setToken(newToken);
   };
 
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    setToken(null);
+
     setUser(null);
-    window.location.href = '/login';
+    setToken(null);
+    setLoading(false);
+
+    navigate('/login', { replace: true });
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, token, loading, login, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -66,6 +126,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
+
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+
   return context;
 };
